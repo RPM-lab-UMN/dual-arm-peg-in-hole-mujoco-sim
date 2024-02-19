@@ -38,6 +38,7 @@ class DualUR5eEnv(gym.Env):
         
         # checkerboard floor
         self._arena = StandardArena()
+        self._arena.mjcf_model.option.gravity = [0,0,-1]
 
         # mocap target that OSC will try to follow
         self._left_target = Target(self._arena.mjcf_model, name="left_mocap")
@@ -67,9 +68,10 @@ class DualUR5eEnv(gym.Env):
         self._right_gripper = Robotiq_2F85()
 
         # small box to be manipulated
-        self._box = Primitive(type="box", size=[0.01, 0.01, 0.01], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
-        self._peg = PegHole(ph_type="peg", shape="Circle")
-        self._hole = PegHole(ph_type="hole", shape="Circle")
+        self._box_left = Primitive(type="box", size=[0.038, 0.038, 0.038], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
+        self._box_right = Primitive(type="box", size=[0.038, 0.038, 0.038], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
+        self._peg = PegHole(ph_type="peg", shape="Pentagon")
+        self._hole = PegHole(ph_type="hole", shape="Pentagon")
 
         # attach gripper to arm
         self._left_arm.attach_tool(self._left_gripper.mjcf_model, pos=[0, 0, 0], quat=[0, 0, 0, 1])
@@ -86,17 +88,29 @@ class DualUR5eEnv(gym.Env):
 
         # attach box to arena as free joint
         # self._arena.attach_free(
-        #     self._box.mjcf_model, pos=[-0.5,0.1,0.5]
+        #     self._box.mjcf_model, pos=[-0.5,0.1,0.2]
         # )
 
         # attach peg to arena as free joint
         self._arena.attach_free(
-            self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[0,0,-0.7071081,0.7071055]
+            # self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[ -0.7071068, 0.7071068, 0, 0 ]
+            self._peg.mjcf_model, pos=[0.3,-0.6,0.065], quat=[0,0,-0.7071081,0.7071055] # [0,0,0.7071081,0.7071055] 
         )
 
         self._arena.attach_free(
-            self._hole.mjcf_model, pos=[-0.5,0.1,0], quat=[0,0,0.7071081,0.7071055]
+            # self._hole.mjcf_model, pos=[-0.5,0.1,0], quat=[0,0,0.7071081,0.7071055]
+            self._hole.mjcf_model, pos=[-0.3,-0.6,0.04], quat=[ 0, 0, -0.7071068, 0.7071068 ] # [ -0.7071068, 0.7071068, 0, 0 ]
         )
+
+        # self._arena.attach_free(
+        #     # self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[ -0.7071068, 0.7071068, 0, 0 ]
+        #     self._box_left.mjcf_model, pos=[0.3,-0.6,0.05]# [0,0,0.7071081,0.7071055] 
+        # )
+
+        # self._arena.attach_free(
+        #     # self._hole.mjcf_model, pos=[-0.5,0.1,0], quat=[0,0,0.7071081,0.7071055]
+        #     self._box_right.mjcf_model, pos=[-0.3,-0.6,0.05]
+        # )
        
         # generate model
         self._physics = mjcf.Physics.from_mjcf_model(self._arena.mjcf_model)
@@ -133,6 +147,9 @@ class DualUR5eEnv(gym.Env):
         self._viewer = None
         self._step_start = None
 
+        # For scripted demo
+        self._phase = 0
+
 
     def _get_obs(self) -> np.ndarray:
         # TODO come up with an observations that makes sense for your RL task
@@ -150,13 +167,21 @@ class DualUR5eEnv(gym.Env):
             # put arm in a reasonable starting position
 
             self._physics.bind(self._left_arm.joints).qpos = [
-                0.0,
-                3.1415,
-                0.0,
-                0.0, # 
-                0.0,
-                0.0,
+                -1.11,
+                2.7,
+                2.63,
+                -2.19,
+                -0.463,
+                -1.57,
             ]
+            # [
+            #     0.0,
+            #     3.1415,
+            #     0.0,
+            #     0.0, # 
+            #     0.0,
+            #     0.0,
+            # ]
             # [
             #     0.0,
             #     -1.5707,
@@ -167,17 +192,29 @@ class DualUR5eEnv(gym.Env):
             # ]
 
             self._physics.bind(self._right_arm.joints).qpos = [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
+                1.11,
+                -0.115,
+                -2.2,
+                2.32,
+                -0.463,
+                1.57,
             ]
+            # [
+            #     0.0,
+            #     0.0,
+            #     0.0,
+            #     0.0,
+            #     0.0,
+            #     0.0,
+            # ]
 
             # put target in a reasonable starting position
-            self._left_target.set_mocap_pose(self._physics, position=[-0.3, -0.4, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677])
-            self._right_target.set_mocap_pose(self._physics, position=[0.3, -0.4, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677])
+            self._left_target.set_mocap_pose( # z=0.7
+                self._physics, position=[-0.3, -0.6, 0.5], quaternion=[0,0,0,1] # [0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
+            )
+            self._right_target.set_mocap_pose( # z=0.7
+                self._physics, position=[0.3, -0.6, 0.5], quaternion=[0,0,0,1] # [0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
+            )
 
         observation = self._get_obs()
         info = self._get_info()
@@ -201,6 +238,63 @@ class DualUR5eEnv(gym.Env):
         # render frame
         if self._render_mode == "human":
             self._render_frame()
+
+        # TEMP: Print out mocap and eef positions
+        left_eef_pose = self._left_arm.get_eef_pose(self._physics)
+        right_eef_pose = self._right_arm.get_eef_pose(self._physics)
+
+        left_pose_error = np.linalg.norm(left_eef_pose - left_target_pose) / np.linalg.norm(left_target_pose)
+        right_pose_error = np.linalg.norm(right_eef_pose - right_target_pose) / np.linalg.norm(right_target_pose)
+
+        print('='*10)
+        print(left_pose_error)
+        print(right_pose_error)
+        print('='*10)
+
+        if self._phase < 5 and left_pose_error < 1e-2 and right_pose_error < 1e-2:
+            if self._phase == 0:
+                self._left_target.set_mocap_pose( # z=0.15
+                    self._physics, position=[-0.3, -0.6, 0.14], quaternion=[0,0,0,1]
+                )
+                self._right_target.set_mocap_pose( # z=0.17
+                    self._physics, position=[0.3, -0.6, 0.16], quaternion=[0,0,0,1]
+                )
+            elif self._phase == 1:
+                self._physics.bind(self._left_gripper.actuator).ctrl = 255
+                self._physics.bind(self._right_gripper.actuator).ctrl = 255
+            elif self._phase == 2:
+                self._left_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[-0.3, -0.6, 0.3], quaternion=[0,0,0,1]
+                )
+                self._right_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[0.3, -0.6, 0.3], quaternion=[0,0,0,1]
+                )
+            # Phase 3 and 4 should have the same yz perturbations
+            elif self._phase == 3:
+                self._left_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[-0.3, -0.61, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                )
+                self._right_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[0.3, -0.59, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                )
+            elif self._phase == 4:
+                self._left_target.set_mocap_pose( # z=0.7, x=-0.15/0.15
+                    self._physics, position=[-0.15, -0.61, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                )
+                self._right_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[0.15, -0.59, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                )
+            self._phase += 1
+        elif self._phase >= 5 and left_pose_error < 1.5e-2 and right_pose_error < 1.5e-2:
+            if self._phase == 5:
+                self._left_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[-0.15, -0.6, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                )
+                self._right_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[0.15, -0.6, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                )
+            self._phase += 1
+
         
         # TODO come up with a reward, termination function that makes sense for your RL task
         observation = self._get_obs()

@@ -7,7 +7,7 @@
             <geom type="mesh" contype="0" conaffinity="0"/>
         </default>
         <default class="collision">
-            <geom type="mesh"/>
+            <geom type="mesh" rgba='0.5 0.5 0.5 0.0'/>
         </default>
     </default>
 </mujoco>
