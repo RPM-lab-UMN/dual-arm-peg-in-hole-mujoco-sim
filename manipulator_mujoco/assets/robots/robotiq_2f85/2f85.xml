@@ -59,6 +59,7 @@
 
   <worldbody>
     <body name="base_mount" pos="0 0 0.007" childclass="2f85">
+      <site name="ft_frame" pos="0 0 0" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere"/>
       <geom class="visual" mesh="base_mount" material="black"/>
       <geom class="collision" mesh="base_mount"/>
       <body name="base" pos="0 0 0.0038" quat="1 0 0 -1">
@@ -190,4 +191,9 @@
     <general class="2f85" name="fingers_actuator" tendon="split" forcerange="-5 5" ctrlrange="0 255"
       gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
   </actuator>
+
+  <sensor>
+      <force name="force_ee" site="ft_frame"/>
+      <torque name="torque_ee" site="ft_frame"/>
+  </sensor>
 </mujoco>

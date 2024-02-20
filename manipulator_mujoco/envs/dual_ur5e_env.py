@@ -1,6 +1,7 @@
 import time
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 from dm_control import mjcf
 import mujoco.viewer
 import gymnasium as gym
@@ -70,8 +71,8 @@ class DualUR5eEnv(gym.Env):
         # small box to be manipulated
         self._box_left = Primitive(type="box", size=[0.038, 0.038, 0.038], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
         self._box_right = Primitive(type="box", size=[0.038, 0.038, 0.038], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
-        self._peg = PegHole(ph_type="peg", shape="Pentagon")
-        self._hole = PegHole(ph_type="hole", shape="Pentagon")
+        self._peg = PegHole(ph_type="peg", shape="Hexagon")
+        self._hole = PegHole(ph_type="hole", shape="Hexagon")
 
         # attach gripper to arm
         self._left_arm.attach_tool(self._left_gripper.mjcf_model, pos=[0, 0, 0], quat=[0, 0, 0, 1])
@@ -149,6 +150,53 @@ class DualUR5eEnv(gym.Env):
 
         # For scripted demo
         self._phase = 0
+
+        # For force-torque recordings
+        self.current_ft_data_left = None
+        self.current_ft_data_right = None
+
+        self.time = 0
+        self.times_left = []
+        self.x_forces_left = []
+        self.y_forces_left = []
+        self.z_forces_left = []
+
+        self.x_torques_left = []
+        self.y_torques_left = []
+        self.z_torques_left = []
+
+        self.times_right = []
+        self.x_forces_right = []
+        self.y_forces_right = []
+        self.z_forces_right = []
+
+        self.x_torques_right = []
+        self.y_torques_right = []
+        self.z_torques_right = []
+    
+    def get_current_force_plot_left(self):
+        self.times_left.append(self.time)
+        self.x_forces_left.append(self.current_ft_data_left[0])
+        self.y_forces_left.append(self.current_ft_data_left[1])
+        self.z_forces_left.append(self.current_ft_data_left[2])
+
+        fig = plt.figure()
+        plt.title("Left Arm Forces")
+        plt.ylim(-200, 200)
+        plt.plot(self.times_left[-40:], self.x_forces_left[-40:], linestyle="-", marker="*", markersize=10, color="r", label="force-x")
+        plt.plot(self.times_left[-40:], self.y_forces_left[-40:], linestyle="-", marker="*", markersize=10, color="g", label="force-y")
+        plt.plot(self.times_left[-40:], self.z_forces_left[-40:], linestyle="-", marker="*", markersize=10, color="b", label="force-z")
+        plt.legend(loc="lower right")
+        
+        fig.canvas.draw()
+
+        data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        # plt.show()
+        plt.close()
+
+        return data
 
 
     def _get_obs(self) -> np.ndarray:
@@ -245,11 +293,15 @@ class DualUR5eEnv(gym.Env):
 
         left_pose_error = np.linalg.norm(left_eef_pose - left_target_pose) / np.linalg.norm(left_target_pose)
         right_pose_error = np.linalg.norm(right_eef_pose - right_target_pose) / np.linalg.norm(right_target_pose)
+        self.current_ft_data_left = self._physics.bind(self._left_gripper.force_sensor).sensordata
 
         print('='*10)
         print(left_pose_error)
         print(right_pose_error)
+        # print(self._physics.bind(self._left_gripper.torque_sensor).sensordata)
         print('='*10)
+
+        self.get_current_force_plot_left()
 
         if self._phase < 5 and left_pose_error < 1e-2 and right_pose_error < 1e-2:
             if self._phase == 0:
@@ -301,6 +353,8 @@ class DualUR5eEnv(gym.Env):
         reward = 0
         terminated = False
         info = self._get_info()
+
+        self.time += 1
 
         return observation, reward, terminated, False, info
 
