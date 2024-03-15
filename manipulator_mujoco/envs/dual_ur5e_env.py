@@ -6,11 +6,13 @@ from dm_control import mjcf
 import mujoco.viewer
 import gymnasium as gym
 from gymnasium import spaces
-from manipulator_mujoco.arenas import StandardArena
+from manipulator_mujoco.arenas import StandardArena, DualArmArena
 from manipulator_mujoco.robots import Arm, Robotiq_2F85
 from manipulator_mujoco.mocaps import Target
 from manipulator_mujoco.props import Primitive, PegHole
 from manipulator_mujoco.controllers import OperationalSpaceController
+
+import cv2
 
 class DualUR5eEnv(gym.Env):
 
@@ -38,7 +40,7 @@ class DualUR5eEnv(gym.Env):
         ############################
         
         # checkerboard floor
-        self._arena = StandardArena()
+        self._arena = DualArmArena()
         self._arena.mjcf_model.option.gravity = [0,0,-1]
 
         # mocap target that OSC will try to follow
@@ -52,7 +54,8 @@ class DualUR5eEnv(gym.Env):
                 '../assets/robots/ur5e/ur5e.xml',
             ),
             eef_site_name='eef_site',
-            attachment_site_name='attachment_site'
+            attachment_site_name='attachment_site',
+            name='left_arm'
         )
 
         self._right_arm = Arm(
@@ -61,7 +64,8 @@ class DualUR5eEnv(gym.Env):
                 '../assets/robots/ur5e/ur5e.xml',
             ),
             eef_site_name='eef_site',
-            attachment_site_name='attachment_site'
+            attachment_site_name='attachment_site',
+            name='right_arm'
         )
 
         # gripper
@@ -69,10 +73,13 @@ class DualUR5eEnv(gym.Env):
         self._right_gripper = Robotiq_2F85()
 
         # small box to be manipulated
-        self._box_left = Primitive(type="box", size=[0.038, 0.038, 0.038], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
-        self._box_right = Primitive(type="box", size=[0.038, 0.038, 0.038], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
-        self._peg = PegHole(ph_type="peg", shape="Hexagon")
-        self._hole = PegHole(ph_type="hole", shape="Hexagon")
+        self._box_left = Primitive(type="box", size=[0.04, 0.04, 0.04], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
+        self._box_right = Primitive(type="box", size=[0.04, 0.04, 0.04], pos=[0,0,0.02], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
+        self._peg = PegHole(ph_type="peg", shape="Diamond")
+        self._hole = PegHole(ph_type="hole", shape="Diamond")
+
+        self._left_gripper.attach_object(self._hole.mjcf_model, pos=[0,0,0.155], quat=[ 0, 0, -0.7071068, -0.7071068 ])
+        self._right_gripper.attach_object(self._peg.mjcf_model, pos=[0,0,0.155], quat=[0,0,-0.7071081,-0.7071055])
 
         # attach gripper to arm
         self._left_arm.attach_tool(self._left_gripper.mjcf_model, pos=[0, 0, 0], quat=[0, 0, 0, 1])
@@ -93,15 +100,15 @@ class DualUR5eEnv(gym.Env):
         # )
 
         # attach peg to arena as free joint
-        self._arena.attach_free(
-            # self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[ -0.7071068, 0.7071068, 0, 0 ]
-            self._peg.mjcf_model, pos=[0.3,-0.6,0.065], quat=[0,0,-0.7071081,0.7071055] # [0,0,0.7071081,0.7071055] 
-        )
+        # self._arena.attach_free(
+        #     # self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[ -0.7071068, 0.7071068, 0, 0 ]
+        #     self._peg.mjcf_model, pos=[0.3,-0.6,0.065], quat=[0,0,-0.7071081,0.7071055] # [0,0,0.7071081,0.7071055] 
+        # )
 
-        self._arena.attach_free(
-            # self._hole.mjcf_model, pos=[-0.5,0.1,0], quat=[0,0,0.7071081,0.7071055]
-            self._hole.mjcf_model, pos=[-0.3,-0.6,0.04], quat=[ 0, 0, -0.7071068, 0.7071068 ] # [ -0.7071068, 0.7071068, 0, 0 ]
-        )
+        # self._arena.attach_free(
+        #     # self._hole.mjcf_model, pos=[-0.5,0.1,0], quat=[0,0,0.7071081,0.7071055]
+        #     self._hole.mjcf_model, pos=[-0.3,-0.6,0.04], quat=[ 0, 0, -0.7071068, 0.7071068 ] # [ -0.7071068, 0.7071068, 0, 0 ]
+        # )
 
         # self._arena.attach_free(
         #     # self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[ -0.7071068, 0.7071068, 0, 0 ]
@@ -150,10 +157,11 @@ class DualUR5eEnv(gym.Env):
 
         # For scripted demo
         self._phase = 0
+        self.count = 0
 
         # For force-torque recordings
-        self.current_ft_data_left = None
-        self.current_ft_data_right = None
+        self.current_force_data_left = None
+        self.current_torque_data_right = None
 
         self.time = 0
         self.times_left = []
@@ -173,19 +181,21 @@ class DualUR5eEnv(gym.Env):
         self.x_torques_right = []
         self.y_torques_right = []
         self.z_torques_right = []
+
+        self.frames = []
     
     def get_current_force_plot_left(self):
         self.times_left.append(self.time)
-        self.x_forces_left.append(self.current_ft_data_left[0])
-        self.y_forces_left.append(self.current_ft_data_left[1])
-        self.z_forces_left.append(self.current_ft_data_left[2])
+        self.x_forces_left.append(self.current_force_data_left[0])
+        self.y_forces_left.append(self.current_force_data_left[1])
+        self.z_forces_left.append(self.current_force_data_left[2])
 
         fig = plt.figure()
-        plt.title("Left Arm Forces")
+        plt.title("Right Arm Forces")
         plt.ylim(-200, 200)
-        plt.plot(self.times_left[-40:], self.x_forces_left[-40:], linestyle="-", marker="*", markersize=10, color="r", label="force-x")
-        plt.plot(self.times_left[-40:], self.y_forces_left[-40:], linestyle="-", marker="*", markersize=10, color="g", label="force-y")
-        plt.plot(self.times_left[-40:], self.z_forces_left[-40:], linestyle="-", marker="*", markersize=10, color="b", label="force-z")
+        plt.plot(self.times_left[-40:], self.x_forces_left[-40:], linestyle="-", marker=".", markersize=1, color="r", label="force-x")
+        plt.plot(self.times_left[-40:], self.y_forces_left[-40:], linestyle="-", marker=".", markersize=1, color="g", label="force-y")
+        plt.plot(self.times_left[-40:], self.z_forces_left[-40:], linestyle="-", marker=".", markersize=1, color="b", label="force-z")
         plt.legend(loc="lower right")
         
         fig.canvas.draw()
@@ -193,7 +203,29 @@ class DualUR5eEnv(gym.Env):
         data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-        # plt.show()
+        plt.close()
+
+        return data
+
+    def get_current_torque_plot_left(self):
+        # self.times_left.append(self.time)
+        self.x_torques_left.append(self.current_torque_data_left[0])
+        self.y_torques_left.append(self.current_torque_data_left[1])
+        self.z_torques_left.append(self.current_torque_data_left[2])
+
+        fig = plt.figure()
+        plt.title("Right Arm Torques")
+        plt.ylim(-3, 3)
+        plt.plot(self.times_left[-40:], self.x_torques_left[-40:], linestyle="-", marker=".", markersize=1, color="r", label="torque-x")
+        plt.plot(self.times_left[-40:], self.y_torques_left[-40:], linestyle="-", marker=".", markersize=1, color="g", label="torque-y")
+        plt.plot(self.times_left[-40:], self.z_torques_left[-40:], linestyle="-", marker=".", markersize=1, color="b", label="torque-z")
+        plt.legend(loc="lower right")
+        
+        fig.canvas.draw()
+
+        data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
         plt.close()
 
         return data
@@ -283,62 +315,75 @@ class DualUR5eEnv(gym.Env):
         # step physics
         self._physics.step()
 
-        # render frame
-        if self._render_mode == "human":
-            self._render_frame()
-
         # TEMP: Print out mocap and eef positions
         left_eef_pose = self._left_arm.get_eef_pose(self._physics)
         right_eef_pose = self._right_arm.get_eef_pose(self._physics)
 
         left_pose_error = np.linalg.norm(left_eef_pose - left_target_pose) / np.linalg.norm(left_target_pose)
         right_pose_error = np.linalg.norm(right_eef_pose - right_target_pose) / np.linalg.norm(right_target_pose)
-        self.current_ft_data_left = self._physics.bind(self._left_gripper.force_sensor).sensordata
+        self.current_force_data_left = self._physics.bind(self._right_arm.force_sensor).sensordata
+        self.current_torque_data_left = self._physics.bind(self._right_arm.torque_sensor).sensordata
 
         print('='*10)
         print(left_pose_error)
         print(right_pose_error)
-        # print(self._physics.bind(self._left_gripper.torque_sensor).sensordata)
+        print(self.time)
+        # print(self.current_torque_data_left)
         print('='*10)
 
-        self.get_current_force_plot_left()
+        # render frame
+        if self._render_mode == "human":
+            self._render_frame()
+        elif self._phase >= 5: # elif self.time >= 1000
+            if (self.time + 1) % 10 == 0: # 9
+                print("RENDERING")
+                cur_frame_overhead = self._render_frame(camera_id=0)[:,:,[2,1,0]]
+                cur_frame_wrist_1 = self._render_frame(camera_id=1)[:,:,[2,1,0]]
+                cur_frame_wrist_2 = self._render_frame(camera_id=2)[:,:,[2,1,0]]
+                cur_f_plot = self.get_current_force_plot_left()
+                cur_t_plot = self.get_current_torque_plot_left()
+                # self.frames.append(np.hstack([cur_frame, cur_f_plot, cur_t_plot]))
+                top_row = np.hstack([cur_frame_overhead, cur_frame_wrist_1, cur_frame_wrist_2])
+                bottom_row = np.hstack([cur_frame_overhead, cur_f_plot, cur_t_plot])
+
+                self.frames.append(np.vstack([top_row, bottom_row]))
 
         if self._phase < 5 and left_pose_error < 1e-2 and right_pose_error < 1e-2:
-            if self._phase == 0:
-                self._left_target.set_mocap_pose( # z=0.15
-                    self._physics, position=[-0.3, -0.6, 0.14], quaternion=[0,0,0,1]
-                )
-                self._right_target.set_mocap_pose( # z=0.17
-                    self._physics, position=[0.3, -0.6, 0.16], quaternion=[0,0,0,1]
-                )
-            elif self._phase == 1:
-                self._physics.bind(self._left_gripper.actuator).ctrl = 255
-                self._physics.bind(self._right_gripper.actuator).ctrl = 255
-            elif self._phase == 2:
-                self._left_target.set_mocap_pose( # z=0.7
-                    self._physics, position=[-0.3, -0.6, 0.3], quaternion=[0,0,0,1]
-                )
-                self._right_target.set_mocap_pose( # z=0.7
-                    self._physics, position=[0.3, -0.6, 0.3], quaternion=[0,0,0,1]
-                )
+            # if self._phase == 0: # Ready to pick up
+            #     self._left_target.set_mocap_pose( # z=0.15
+            #         self._physics, position=[-0.3, -0.6, 0.14], quaternion=[0,0,0,1]
+            #     )
+            #     self._right_target.set_mocap_pose( # z=0.17
+            #         self._physics, position=[0.3, -0.6, 0.16], quaternion=[0,0,0,1]
+            #     )
+            # elif self._phase == 1: # Grasping 
+            #     self._physics.bind(self._left_gripper.actuator).ctrl = 255
+            #     self._physics.bind(self._right_gripper.actuator).ctrl = 255
+            # elif self._phase == 2: # Moving back up
+            #     self._left_target.set_mocap_pose( # z=0.7
+            #         self._physics, position=[-0.3, -0.6, 0.3], quaternion=[0,0,0,1]
+            #     )
+            #     self._right_target.set_mocap_pose( # z=0.7
+            #         self._physics, position=[0.3, -0.6, 0.3], quaternion=[0,0,0,1]
+            #     )
             # Phase 3 and 4 should have the same yz perturbations
-            elif self._phase == 3:
+            if self._phase == 3: # Moving to ready position
                 self._left_target.set_mocap_pose( # z=0.7
-                    self._physics, position=[-0.3, -0.61, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                    self._physics, position=[-0.3, -0.59, 0.67], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
                 )
                 self._right_target.set_mocap_pose( # z=0.7
-                    self._physics, position=[0.3, -0.59, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                    self._physics, position=[0.3, -0.61, 0.73], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
                 )
-            elif self._phase == 4:
+            elif self._phase == 4: # Moving in for insertion
                 self._left_target.set_mocap_pose( # z=0.7, x=-0.15/0.15
-                    self._physics, position=[-0.15, -0.61, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                    self._physics, position=[-0.15, -0.59, 0.67], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
                 )
                 self._right_target.set_mocap_pose( # z=0.7
-                    self._physics, position=[0.15, -0.59, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                    self._physics, position=[0.15, -0.61, 0.73], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
                 )
             self._phase += 1
-        elif self._phase >= 5 and left_pose_error < 1.5e-2 and right_pose_error < 1.5e-2:
-            if self._phase == 5:
+        elif self._phase >= 5 and self._phase < 450 and left_pose_error < 4e-2 and right_pose_error < 4e-2: # left_pose_error < 1.5e-2 and right_pose_error < 1.5e-2:
+            if self._phase == 5: # Correcting perturbation
                 self._left_target.set_mocap_pose( # z=0.7
                     self._physics, position=[-0.15, -0.6, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
                 )
@@ -346,7 +391,15 @@ class DualUR5eEnv(gym.Env):
                     self._physics, position=[0.15, -0.6, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
                 )
             self._phase += 1
-
+        elif self._phase >= 400: # and left_pose_error < 1e-2 and right_pose_error < 1e-2:
+            size = self.frames[0].shape
+            print("Saving video...")
+            out = cv2.VideoWriter('fff.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 15, (1920,960)) # (1920,480)
+            for i in range(len(self.frames)):
+                out.write(self.frames[i])
+            out.release()
+            print("Done!")
+            os._exit(status=0)
         
         # TODO come up with a reward, termination function that makes sense for your RL task
         observation = self._get_obs()
@@ -354,11 +407,14 @@ class DualUR5eEnv(gym.Env):
         terminated = False
         info = self._get_info()
 
+        # if self._phase >= 5:
         self.time += 1
+
+        print(self._phase)
 
         return observation, reward, terminated, False, info
 
-    def render(self) -> np.ndarray:
+    def render(self, camera_id=0) -> np.ndarray:
         """
         Renders the current frame and returns it as an RGB array if the render mode is set to "rgb_array".
 
@@ -366,9 +422,9 @@ class DualUR5eEnv(gym.Env):
             np.ndarray: RGB array of the current frame.
         """
         if self._render_mode == "rgb_array":
-            return self._render_frame()
+            return self._render_frame(camera_id)
 
-    def _render_frame(self) -> None:
+    def _render_frame(self, camera_id) -> None:
         """
         Renders the current frame and updates the viewer if the render mode is set to "human".
         """
@@ -394,7 +450,7 @@ class DualUR5eEnv(gym.Env):
             self._step_start = time.time()
 
         else:  # rgb_array
-            return self._physics.render()
+            return self._physics.render(480, 640, camera_id=camera_id) # id=0
 
     def close(self) -> None:
         """

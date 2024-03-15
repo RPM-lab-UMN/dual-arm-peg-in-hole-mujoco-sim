@@ -1,0 +1,1 @@
+MUJOCO_GL=egl python demo/ur5e_demo.py

@@ -30,7 +30,8 @@ class Robotiq_2F85(Gripper):
         return self._torque_sensor
     
     def attach_object(self, child, pos: list = [0, 0, 0], quat: list = [1, 0, 0, 0]):
-        frame = self._object_site.attach(child._mjcf_model)
+        frame = self._object_site.attach(child)
         frame.pos = pos
         frame.quat = quat
+        frame.add("joint", type="hinge", damping=2, axis=[0,0,1])
         return frame

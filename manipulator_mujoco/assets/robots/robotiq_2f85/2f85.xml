@@ -192,8 +192,8 @@
       gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
   </actuator>
 
-  <sensor>
+  <!-- <sensor>
       <force name="force_ee" site="ft_frame"/>
       <torque name="torque_ee" site="ft_frame"/>
-  </sensor>
+  </sensor> -->
 </mujoco>
