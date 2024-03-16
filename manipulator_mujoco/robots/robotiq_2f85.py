@@ -13,3 +13,25 @@ _ACTUATOR = 'fingers_actuator'
 class Robotiq_2F85(Gripper):
     def __init__(self, name: str = None):
         super().__init__(_2F85_XML, _JOINT, _ACTUATOR, name)
+        self._object_site = self._mjcf_root.find('site', 'pinch')
+        self._force_sensor = self._mjcf_root.find('sensor', 'force_ee')
+        self._torque_sensor = self._mjcf_root.find('sensor', 'torque_ee')
+
+    @property
+    def object_site(self):
+        return self._object_site
+    
+    @property
+    def force_sensor(self):
+        return self._force_sensor
+    
+    @property
+    def torque_sensor(self):
+        return self._torque_sensor
+    
+    def attach_object(self, child, pos: list = [0, 0, 0], quat: list = [1, 0, 0, 0]):
+        frame = self._object_site.attach(child)
+        frame.pos = pos
+        frame.quat = quat
+        frame.add("joint", type="hinge", damping=3.5, axis=[0,0,1])
+        return frame

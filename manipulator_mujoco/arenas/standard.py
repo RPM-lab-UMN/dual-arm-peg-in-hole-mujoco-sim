@@ -27,7 +27,8 @@ class StandardArena(object):
             texrepeat=[5, 5],
             reflectance=0.2,
         )
-        self._mjcf_model.worldbody.add("geom", type="plane", size=[2, 2, 0.1], material=grid)
+        self._mjcf_model.worldbody.add("geom", type="plane", size=[2, 2, 0.1], material=grid) # z = 1.15
+        self._mjcf_model.worldbody.add('camera', name='overhead', pos=[0, -0.6, 1.15], quat=[ 0, 0, 0, 1 ])
         for x in [-2, 2]:
             # TODO randomize lighting?
             self._mjcf_model.worldbody.add("light", pos=[x, -1, 3], dir=[-x, 1, -2])

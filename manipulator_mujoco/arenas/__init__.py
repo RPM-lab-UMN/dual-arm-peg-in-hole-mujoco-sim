@@ -1,1 +1,2 @@
 from manipulator_mujoco.arenas.standard import StandardArena
+from manipulator_mujoco.arenas.dual_arm_arena import DualArmArena

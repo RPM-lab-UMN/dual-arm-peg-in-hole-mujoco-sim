@@ -19,6 +19,11 @@ class Arm():
         self._eef_site = self._mjcf_root.find('site', eef_site_name)
         self._attachment_site = self._mjcf_root.find('site', attachment_site_name)
 
+        self._force_sensor = self._mjcf_root.find('sensor', 'force_ee')
+        self._torque_sensor = self._mjcf_root.find('sensor', 'torque_ee')
+
+        self._wrist_camera = self._mjcf_root.find('body', 'tool0_link').add("camera", pos=[0,0.15,0], quat=[ -0.1240255, 0.9922037, 0, -0.012224 ]) # quat=[0,1,0,0])
+
     @property
     def joints(self):
         """List of joint elements belonging to the arm."""
@@ -28,6 +33,14 @@ class Arm():
     def eef_site(self):
         """Wrist site of the arm (attachment point for the hand)."""
         return self._eef_site
+
+    @property
+    def force_sensor(self):
+        return self._force_sensor
+    
+    @property
+    def torque_sensor(self):
+        return self._torque_sensor
 
     @property
     def mjcf_model(self):
