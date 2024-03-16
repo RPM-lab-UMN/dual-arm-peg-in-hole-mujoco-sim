@@ -15,7 +15,18 @@ class PegHole():
         self.meshes_path = os.path.join(
             os.path.dirname(__file__),
             '../assets/interactables/'
+        # xml_path = os.path.join(
+        #     os.path.dirname(__file__), 
+        #     '../assets/interactables/peg_hole.xml'
+        # )
+
+        # TODO: Get assets relative path to remove the need for the peg_hole.xml file
+        self.meshes_path = os.path.join(
+            os.path.dirname(__file__),
+            '../assets/interactables/'
         )
+
+        xml_path = os.path.join(self.meshes_path, 'peg_hole.xml')
 
         xml_path = os.path.join(self.meshes_path, 'peg_hole.xml')
 

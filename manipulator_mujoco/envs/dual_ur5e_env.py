@@ -2,15 +2,19 @@ import time
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from dm_control import mjcf
 import mujoco.viewer
 import gymnasium as gym
 from gymnasium import spaces
 from manipulator_mujoco.arenas import StandardArena, DualArmArena
+from manipulator_mujoco.arenas import StandardArena, DualArmArena
 from manipulator_mujoco.robots import Arm, Robotiq_2F85
 from manipulator_mujoco.mocaps import Target
 from manipulator_mujoco.props import Primitive, PegHole
 from manipulator_mujoco.controllers import OperationalSpaceController
+
+import cv2
 
 import cv2
 
@@ -42,6 +46,8 @@ class DualUR5eEnv(gym.Env):
         # checkerboard floor
         self._arena = DualArmArena()
         self._arena.mjcf_model.option.gravity = [0,0,-1]
+        self._arena = DualArmArena()
+        self._arena.mjcf_model.option.gravity = [0,0,-1]
 
         # mocap target that OSC will try to follow
         self._left_target = Target(self._arena.mjcf_model, name="left_mocap")
@@ -54,6 +60,8 @@ class DualUR5eEnv(gym.Env):
                 '../assets/robots/ur5e/ur5e.xml',
             ),
             eef_site_name='eef_site',
+            attachment_site_name='attachment_site',
+            name='left_arm'
             attachment_site_name='attachment_site',
             name='left_arm'
         )
@@ -104,7 +112,25 @@ class DualUR5eEnv(gym.Env):
         #     # self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[ -0.7071068, 0.7071068, 0, 0 ]
         #     self._peg.mjcf_model, pos=[0.3,-0.6,0.065], quat=[0,0,-0.7071081,0.7071055] # [0,0,0.7071081,0.7071055] 
         # )
+        # self._arena.attach_free(
+        #     # self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[ -0.7071068, 0.7071068, 0, 0 ]
+        #     self._peg.mjcf_model, pos=[0.3,-0.6,0.065], quat=[0,0,-0.7071081,0.7071055] # [0,0,0.7071081,0.7071055] 
+        # )
 
+        # self._arena.attach_free(
+        #     # self._hole.mjcf_model, pos=[-0.5,0.1,0], quat=[0,0,0.7071081,0.7071055]
+        #     self._hole.mjcf_model, pos=[-0.3,-0.6,0.04], quat=[ 0, 0, -0.7071068, 0.7071068 ] # [ -0.7071068, 0.7071068, 0, 0 ]
+        # )
+
+        # self._arena.attach_free(
+        #     # self._peg.mjcf_model, pos=[-0.5,0.1,0.2], quat=[ -0.7071068, 0.7071068, 0, 0 ]
+        #     self._box_left.mjcf_model, pos=[0.3,-0.6,0.05]# [0,0,0.7071081,0.7071055] 
+        # )
+
+        # self._arena.attach_free(
+        #     # self._hole.mjcf_model, pos=[-0.5,0.1,0], quat=[0,0,0.7071081,0.7071055]
+        #     self._box_right.mjcf_model, pos=[-0.3,-0.6,0.05]
+        # )
         # self._arena.attach_free(
         #     # self._hole.mjcf_model, pos=[-0.5,0.1,0], quat=[0,0,0.7071081,0.7071055]
         #     self._hole.mjcf_model, pos=[-0.3,-0.6,0.04], quat=[ 0, 0, -0.7071068, 0.7071068 ] # [ -0.7071068, 0.7071068, 0, 0 ]
@@ -230,6 +256,81 @@ class DualUR5eEnv(gym.Env):
 
         return data
 
+        # For scripted demo
+        self._phase = 0
+        self.count = 0
+
+        # For force-torque recordings
+        self.current_force_data_left = None
+        self.current_torque_data_right = None
+
+        self.time = 0
+        self.times_left = []
+        self.x_forces_left = []
+        self.y_forces_left = []
+        self.z_forces_left = []
+
+        self.x_torques_left = []
+        self.y_torques_left = []
+        self.z_torques_left = []
+
+        self.times_right = []
+        self.x_forces_right = []
+        self.y_forces_right = []
+        self.z_forces_right = []
+
+        self.x_torques_right = []
+        self.y_torques_right = []
+        self.z_torques_right = []
+
+        self.frames = []
+    
+    def get_current_force_plot_left(self):
+        self.times_left.append(self.time)
+        self.x_forces_left.append(self.current_force_data_left[0])
+        self.y_forces_left.append(self.current_force_data_left[1])
+        self.z_forces_left.append(self.current_force_data_left[2])
+
+        fig = plt.figure()
+        plt.title("Right Arm Forces")
+        plt.ylim(-200, 200)
+        plt.plot(self.times_left[-40:], self.x_forces_left[-40:], linestyle="-", marker=".", markersize=1, color="r", label="force-x")
+        plt.plot(self.times_left[-40:], self.y_forces_left[-40:], linestyle="-", marker=".", markersize=1, color="g", label="force-y")
+        plt.plot(self.times_left[-40:], self.z_forces_left[-40:], linestyle="-", marker=".", markersize=1, color="b", label="force-z")
+        plt.legend(loc="lower right")
+        
+        fig.canvas.draw()
+
+        data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        plt.close()
+
+        return data
+
+    def get_current_torque_plot_left(self):
+        # self.times_left.append(self.time)
+        self.x_torques_left.append(self.current_torque_data_left[0])
+        self.y_torques_left.append(self.current_torque_data_left[1])
+        self.z_torques_left.append(self.current_torque_data_left[2])
+
+        fig = plt.figure()
+        plt.title("Right Arm Torques")
+        plt.ylim(-3, 3)
+        plt.plot(self.times_left[-40:], self.x_torques_left[-40:], linestyle="-", marker=".", markersize=1, color="r", label="torque-x")
+        plt.plot(self.times_left[-40:], self.y_torques_left[-40:], linestyle="-", marker=".", markersize=1, color="g", label="torque-y")
+        plt.plot(self.times_left[-40:], self.z_torques_left[-40:], linestyle="-", marker=".", markersize=1, color="b", label="torque-z")
+        plt.legend(loc="lower right")
+        
+        fig.canvas.draw()
+
+        data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        plt.close()
+
+        return data
+
 
     def _get_obs(self) -> np.ndarray:
         # TODO come up with an observations that makes sense for your RL task
@@ -247,6 +348,21 @@ class DualUR5eEnv(gym.Env):
             # put arm in a reasonable starting position
 
             self._physics.bind(self._left_arm.joints).qpos = [
+                -1.11,
+                2.7,
+                2.63,
+                -2.19,
+                -0.463,
+                -1.57,
+            ]
+            # [
+            #     0.0,
+            #     3.1415,
+            #     0.0,
+            #     0.0, # 
+            #     0.0,
+            #     0.0,
+            # ]
                 -1.11,
                 2.7,
                 2.63,
@@ -287,8 +403,29 @@ class DualUR5eEnv(gym.Env):
             #     0.0,
             #     0.0,
             # ]
+                1.11,
+                -0.115,
+                -2.2,
+                2.32,
+                -0.463,
+                1.57,
+            ]
+            # [
+            #     0.0,
+            #     0.0,
+            #     0.0,
+            #     0.0,
+            #     0.0,
+            #     0.0,
+            # ]
 
             # put target in a reasonable starting position
+            self._left_target.set_mocap_pose( # z=0.7
+                self._physics, position=[-0.3, -0.6, 0.5], quaternion=[0,0,0,1] # [0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
+            )
+            self._right_target.set_mocap_pose( # z=0.7
+                self._physics, position=[0.3, -0.6, 0.5], quaternion=[0,0,0,1] # [0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
+            )
             self._left_target.set_mocap_pose( # z=0.7
                 self._physics, position=[-0.3, -0.6, 0.5], quaternion=[0,0,0,1] # [0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
             )
@@ -314,6 +451,22 @@ class DualUR5eEnv(gym.Env):
 
         # step physics
         self._physics.step()
+
+        # TEMP: Print out mocap and eef positions
+        left_eef_pose = self._left_arm.get_eef_pose(self._physics)
+        right_eef_pose = self._right_arm.get_eef_pose(self._physics)
+
+        left_pose_error = np.linalg.norm(left_eef_pose - left_target_pose) / np.linalg.norm(left_target_pose)
+        right_pose_error = np.linalg.norm(right_eef_pose - right_target_pose) / np.linalg.norm(right_target_pose)
+        self.current_force_data_left = self._physics.bind(self._right_arm.force_sensor).sensordata
+        self.current_torque_data_left = self._physics.bind(self._right_arm.torque_sensor).sensordata
+
+        print('='*10)
+        print(left_pose_error)
+        print(right_pose_error)
+        print(self.time)
+        # print(self.current_torque_data_left)
+        print('='*10)
 
         # TEMP: Print out mocap and eef positions
         left_eef_pose = self._left_arm.get_eef_pose(self._physics)
@@ -413,6 +566,11 @@ class DualUR5eEnv(gym.Env):
 
         print(self._phase)
 
+        # if self._phase >= 5:
+        self.time += 1
+
+        print(self._phase)
+
         return observation, reward, terminated, False, info
 
     def render(self, camera_id=0) -> np.ndarray:
@@ -451,6 +609,7 @@ class DualUR5eEnv(gym.Env):
             self._step_start = time.time()
 
         else:  # rgb_array
+            return self._physics.render(480, 640, camera_id=camera_id) # id=0
             return self._physics.render(480, 640, camera_id=camera_id) # id=0
 
     def close(self) -> None:

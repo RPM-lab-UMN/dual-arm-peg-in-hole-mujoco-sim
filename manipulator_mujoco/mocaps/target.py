@@ -21,6 +21,7 @@ class Target(object):
             type="box",
             size=[0.015] * 3,
             rgba=[1, 0, 0, 0.2], # a = 0.2
+            rgba=[1, 0, 0, 0], # a = 0.2
             conaffinity=0,
             contype=0,
         )
