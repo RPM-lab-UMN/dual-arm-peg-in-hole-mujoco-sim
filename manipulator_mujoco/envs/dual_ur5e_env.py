@@ -62,8 +62,6 @@ class DualUR5eEnv(gym.Env):
             eef_site_name='eef_site',
             attachment_site_name='attachment_site',
             name='left_arm'
-            attachment_site_name='attachment_site',
-            name='left_arm'
         )
 
         self._right_arm = Arm(
@@ -363,13 +361,13 @@ class DualUR5eEnv(gym.Env):
             #     0.0,
             #     0.0,
             # ]
-                -1.11,
-                2.7,
-                2.63,
-                -2.19,
-                -0.463,
-                -1.57,
-            ]
+            #     -1.11,
+            #     2.7,
+            #     2.63,
+            #     -2.19,
+            #     -0.463,
+            #     -1.57,
+            # ]
             # [
             #     0.0,
             #     3.1415,
@@ -403,13 +401,13 @@ class DualUR5eEnv(gym.Env):
             #     0.0,
             #     0.0,
             # ]
-                1.11,
-                -0.115,
-                -2.2,
-                2.32,
-                -0.463,
-                1.57,
-            ]
+            #     1.11,
+            #     -0.115,
+            #     -2.2,
+            #     2.32,
+            #     -0.463,
+            #     1.57,
+            # ]
             # [
             #     0.0,
             #     0.0,
