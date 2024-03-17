@@ -52,7 +52,7 @@ class PegHole():
                                                     f'{shape}_cube_{type}_decomp_*.obj')))):
             self._mjcf_model.asset.add('mesh', name=self._mesh_name+f'_{i}', file=f'collision_meshes/{shape}_cube_{type}_decomp_{i}.obj')
             # TODO: Adjust friction parameters to be align more with real-world setup
-            self._body.add('geom', type='mesh', name=self._mesh_name+f'_{i}', mesh=self._mesh_name+f'_{i}', friction=[0.01, 0.1, 0.001], dclass='collision') # [0.01, 0.3, 0.0001]
+            self._body.add('geom', type='mesh', name=self._mesh_name+f'_{i}', mesh=self._mesh_name+f'_{i}', friction=[0.01, 0.3, 0.0001], dclass='collision') # [0.01, 0.3, 0.0001]
         self._mjcf_model.asset.add('mesh', name=self._mesh_name+'_visual', file=f'{shape}_cube_{type}.obj')
         self._body.add('geom', type='mesh', name=self._mesh_name+'_visual', mesh=self._mesh_name+'_visual', dclass='visual')
 
