@@ -26,6 +26,24 @@ class DemoRecorder:
 
         self.video_frames = []
 
+    def reset(self):
+        self.time = 0
+        self.times = []
+
+        self.forces_left = []
+        self.torques_left = []
+
+        self.forces_right = []
+        self.torques_right = []
+
+        self.rgb_frames = {
+            'overhead': [],
+            'wrist_left': [],
+            'wrist_right': []
+        }
+
+        self.video_frames = []
+
     def record_demo_values(self):
         self.times.append(self.time)
 
@@ -150,6 +168,10 @@ class DemoScheduler:
 
         self.keyframes = []
 
+    def reset(self):
+        self.phase = 0
+        self.wait_time = 0
+
     def add_keyframe(self, left_pos, right_pos, error_thresh=1e-2, wait_time=0, record=True):
         self.keyframes.append({
             'left_pos': left_pos,
@@ -220,17 +242,22 @@ class Demo:
         self.current_step = 0
         self.render_mode = render_mode
 
-    def init_env(self):
+    def reset(self):
         self.env.reset()
+        self.recorder.reset()
+        self.scheduler.reset()
     
     def run(self):
-        self.init_env()
+        self.reset()
 
         if self.render_mode == "human":
             while True:
                 left_action, right_action = self.scheduler.step()
                 self.env.step(np.array([left_action, right_action]))
                 self.env.render_frame(camera_id=0)
+
+                if self.scheduler.is_complete():
+                    self.reset()
         else:
             while not self.scheduler.is_complete():
                 left_action, right_action = self.scheduler.step()
