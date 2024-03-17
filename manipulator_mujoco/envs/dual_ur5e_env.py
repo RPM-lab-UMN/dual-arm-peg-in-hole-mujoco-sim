@@ -8,13 +8,10 @@ import mujoco.viewer
 import gymnasium as gym
 from gymnasium import spaces
 from manipulator_mujoco.arenas import StandardArena, DualArmArena
-from manipulator_mujoco.arenas import StandardArena, DualArmArena
 from manipulator_mujoco.robots import Arm, Robotiq_2F85
 from manipulator_mujoco.mocaps import Target
 from manipulator_mujoco.props import Primitive, PegHole
 from manipulator_mujoco.controllers import OperationalSpaceController
-
-import cv2
 
 import cv2
 
@@ -44,8 +41,6 @@ class DualUR5eEnv(gym.Env):
         ############################
         
         # checkerboard floor
-        self._arena = DualArmArena()
-        self._arena.mjcf_model.option.gravity = [0,0,-1]
         self._arena = DualArmArena()
         self._arena.mjcf_model.option.gravity = [0,0,-1]
 
@@ -485,7 +480,7 @@ class DualUR5eEnv(gym.Env):
         # render frame
         if self._render_mode == "human":
             self._render_frame(camera_id=0)
-        elif self._phase >= 5: # elif self.time >= 1000
+        elif self._phase >= 200: # elif self.time >= 1000
             if (self.time + 1) % 10 == 0 and self._render_mode is None: # 9
                 print("RENDERING")
                 cur_frame_overhead = self._render_frame(camera_id=0)[:,:,[2,1,0]]
@@ -543,7 +538,7 @@ class DualUR5eEnv(gym.Env):
                     self._physics, position=[0.15, -0.6, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
                 )
             self._phase += 1
-        elif self._phase >= 400 and self._render_mode is None: # and left_pose_error < 1e-2 and right_pose_error < 1e-2:
+        elif self._phase >= 450 and self._render_mode is None: # and left_pose_error < 1e-2 and right_pose_error < 1e-2:
             size = self.frames[0].shape
             print("Saving video...")
             out = cv2.VideoWriter('fff.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 15, (1920,960)) # (1920,480)
@@ -559,13 +554,8 @@ class DualUR5eEnv(gym.Env):
         terminated = False
         info = self._get_info()
 
-        # if self._phase >= 5:
-        self.time += 1
-
-        print(self._phase)
-
-        # if self._phase >= 5:
-        self.time += 1
+        if self._phase >= 200:
+            self.time += 1
 
         print(self._phase)
 
@@ -607,7 +597,6 @@ class DualUR5eEnv(gym.Env):
             self._step_start = time.time()
 
         else:  # rgb_array
-            return self._physics.render(480, 640, camera_id=camera_id) # id=0
             return self._physics.render(480, 640, camera_id=camera_id) # id=0
 
     def close(self) -> None:
