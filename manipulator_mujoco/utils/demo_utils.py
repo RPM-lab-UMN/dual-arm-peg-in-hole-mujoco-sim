@@ -47,11 +47,11 @@ class DemoRecorder:
     def record_demo_values(self):
         self.times.append(self.time)
 
-        self.forces_left.append(self.env.physics.bind(self.env._left_arm.force_sensor).sensordata.copy())
-        self.torques_left.append(self.env.physics.bind(self.env._left_arm.torque_sensor).sensordata.copy())
+        self.forces_left.append(self.env.physics.bind(self.env.left_arm.force_sensor).sensordata.copy())
+        self.torques_left.append(self.env.physics.bind(self.env.left_arm.torque_sensor).sensordata.copy())
 
-        self.forces_right.append(self.env.physics.bind(self.env._right_arm.force_sensor).sensordata.copy())
-        self.torques_right.append(self.env.physics.bind(self.env._right_arm.torque_sensor).sensordata.copy())
+        self.forces_right.append(self.env.physics.bind(self.env.right_arm.force_sensor).sensordata.copy())
+        self.torques_right.append(self.env.physics.bind(self.env.right_arm.torque_sensor).sensordata.copy())
 
         cur_frame_overhead = self.env.render_frame(camera_id=0)[:,:,[2,1,0]]
         cur_frame_wrist_right = self.env.render_frame(camera_id=1)[:,:,[2,1,0]]
@@ -161,10 +161,11 @@ class DemoRecorder:
         return data
 
 class DemoScheduler:
-    def __init__(self, env):
+    def __init__(self, env, verbose=False):
         self.env = env
         self.phase = 0
         self.wait_time = 0
+        self.verbose = verbose
 
         self.keyframes = []
 
@@ -198,10 +199,11 @@ class DemoScheduler:
         left_pose_error = np.linalg.norm(left_eef_pose - left_target_pose) / np.linalg.norm(left_target_pose)
         right_pose_error = np.linalg.norm(right_eef_pose - right_target_pose) / np.linalg.norm(right_target_pose)
 
-        print('='*10)
-        print(left_pose_error)
-        print(right_pose_error)
-        print('='*10)
+        if self.verbose:
+            print('='*10)
+            print(left_pose_error)
+            print(right_pose_error)
+            print('='*10)
 
         self.wait_time += 1
         
@@ -220,7 +222,10 @@ class DemoScheduler:
         return left_target_pose, right_target_pose
     
     def can_record(self):
-        return self.keyframes[self.phase]['record']
+        if not self.is_complete():
+            return self.keyframes[self.phase]['record']
+        else:
+            return False
     
     def is_complete(self): 
         return self.phase >= len(self.keyframes)
