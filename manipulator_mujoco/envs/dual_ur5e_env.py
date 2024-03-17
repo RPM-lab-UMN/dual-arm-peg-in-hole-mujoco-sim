@@ -231,15 +231,16 @@ class DualUR5eEnv(gym.Env):
             self._render_frame(camera_id=0)
         elif self._phase >= 5 and self._render_mode is None:
             self.demo_recorder.step()
-
-        if self._phase == 3 and left_pose_error < 1e-2 and right_pose_error < 1e-2:
+            
+        if self._phase < 4 and left_pose_error < 1e-2 and right_pose_error < 1e-2:
             # Moving to ready position
-            self._left_target.set_mocap_pose( # z=0.7
-                self._physics, position=[-0.3, -0.62, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
-            )
-            self._right_target.set_mocap_pose( # z=0.7
-                self._physics, position=[0.3, -0.58, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
-            )
+            if self._phase == 3:
+                self._left_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[-0.3, -0.62, 0.7], quaternion=[0, -0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                )
+                self._right_target.set_mocap_pose( # z=0.7
+                    self._physics, position=[0.3, -0.58, 0.7], quaternion=[0, 0.70710677, 0, 0.70710677] # [0,0,0,1] 
+                )
             self._phase += 1
         elif self._phase >= 4 and self._phase < 200 and left_pose_error < 4e-2 and right_pose_error < 4e-2: # Moving in for insertion
             self._left_target.set_mocap_pose( # z=0.7, x=-0.15/0.15
