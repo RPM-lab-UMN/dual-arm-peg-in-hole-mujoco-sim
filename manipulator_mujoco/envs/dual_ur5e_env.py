@@ -231,7 +231,7 @@ class DualUR5eEnv(gym.Env):
             self._render_frame(camera_id=0)
         elif self._phase >= 5 and self._render_mode is None:
             self.demo_recorder.step()
-            
+
         if self._phase < 4 and left_pose_error < 1e-2 and right_pose_error < 1e-2:
             # Moving to ready position
             if self._phase == 3:
