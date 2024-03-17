@@ -1,3 +1,4 @@
+import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
@@ -28,15 +29,15 @@ class DemoRecorder:
     def record_demo_values(self):
         self.times.append(self.time)
 
-        self.forces_left.append(self.env._physics.bind(self.env._left_arm.force_sensor).sensordata.copy())
-        self.torques_left.append(self.env._physics.bind(self.env._left_arm.torque_sensor).sensordata.copy())
+        self.forces_left.append(self.env.physics.bind(self.env._left_arm.force_sensor).sensordata.copy())
+        self.torques_left.append(self.env.physics.bind(self.env._left_arm.torque_sensor).sensordata.copy())
 
-        self.forces_right.append(self.env._physics.bind(self.env._right_arm.force_sensor).sensordata.copy())
-        self.torques_right.append(self.env._physics.bind(self.env._right_arm.torque_sensor).sensordata.copy())
+        self.forces_right.append(self.env.physics.bind(self.env._right_arm.force_sensor).sensordata.copy())
+        self.torques_right.append(self.env.physics.bind(self.env._right_arm.torque_sensor).sensordata.copy())
 
-        cur_frame_overhead = self.env._render_frame(camera_id=0)[:,:,[2,1,0]]
-        cur_frame_wrist_right = self.env._render_frame(camera_id=1)[:,:,[2,1,0]]
-        cur_frame_wrist_left = self.env._render_frame(camera_id=2)[:,:,[2,1,0]]
+        cur_frame_overhead = self.env.render_frame(camera_id=0)[:,:,[2,1,0]]
+        cur_frame_wrist_right = self.env.render_frame(camera_id=1)[:,:,[2,1,0]]
+        cur_frame_wrist_left = self.env.render_frame(camera_id=2)[:,:,[2,1,0]]
 
         cur_f_plot = self.get_current_force_plot_left()
         cur_t_plot = self.get_current_torque_plot_left()
@@ -142,4 +143,99 @@ class DemoRecorder:
         return data
 
 class DemoScheduler:
-    pass
+    def __init__(self, env):
+        self.env = env
+        self.phase = 0
+        self.wait_time = 0
+
+        self.keyframes = []
+
+    def add_keyframe(self, left_pos, right_pos, error_thresh=1e-2, wait_time=0, record=True):
+        self.keyframes.append({
+            'left_pos': left_pos,
+            'right_pos': right_pos,
+            'error_thresh': error_thresh,
+            'wait_time': wait_time,
+            'record': record
+        })
+    
+    def step(self):
+        if self.is_complete():
+            # Demo is complete
+            return self.keyframes[-1]['left_pos'], self.keyframes[-1]['right_pos']
+
+        left_eef_pose = self.env.left_arm.get_eef_pose(self.env.physics)
+        right_eef_pose = self.env.right_arm.get_eef_pose(self.env.physics)
+
+        left_target_pose = self.keyframes[self.phase]['left_pos']
+        right_target_pose = self.keyframes[self.phase]['right_pos']
+
+        error_thresh = self.keyframes[self.phase]['error_thresh']
+        wait_time = self.keyframes[self.phase]['wait_time']
+
+        left_pose_error = np.linalg.norm(left_eef_pose - left_target_pose) / np.linalg.norm(left_target_pose)
+        right_pose_error = np.linalg.norm(right_eef_pose - right_target_pose) / np.linalg.norm(right_target_pose)
+
+        print('='*10)
+        print(left_pose_error)
+        print(right_pose_error)
+        print('='*10)
+
+        self.wait_time += 1
+        
+        if self.wait_time > wait_time and left_pose_error < error_thresh and right_pose_error < error_thresh:
+            self.wait_time = 0
+            self.phase += 1
+
+            if self.is_complete():
+                # Demo is complete
+                return self.keyframes[-1]['left_pos'], self.keyframes[-1]['right_pos']
+
+        new_left_target_pose = self.keyframes[self.phase]['left_pos']
+        new_right_target_pose = self.keyframes[self.phase]['right_pos']
+            
+        # Return current action
+        return left_target_pose, right_target_pose
+    
+    def can_record(self):
+        return self.keyframes[self.phase]['record']
+    
+    def is_complete(self): 
+        return self.phase >= len(self.keyframes)
+
+
+class Demo:
+    def __init__(
+            self,
+            env: gym.Env,
+            demo_scheduler: DemoScheduler,
+            demo_recorder: DemoRecorder,
+            max_steps=-1,
+            render_mode=None
+    ):
+        self.env = env
+        self.scheduler = demo_scheduler
+        self.recorder = demo_recorder
+        self.max_steps = max_steps
+        self.current_step = 0
+        self.render_mode = render_mode
+
+    def init_env(self):
+        self.env.reset()
+    
+    def run(self):
+        self.init_env()
+
+        if self.render_mode == "human":
+            while True:
+                left_action, right_action = self.scheduler.step()
+                self.env.step(np.array([left_action, right_action]))
+                self.env.render_frame(camera_id=0)
+        else:
+            while not self.scheduler.is_complete():
+                left_action, right_action = self.scheduler.step()
+                self.env.step(np.array([left_action, right_action]))
+                if self.scheduler.can_record():
+                    self.recorder.step()
+            print("Demo complete: Saving data...")
+            self.recorder.save_recording()

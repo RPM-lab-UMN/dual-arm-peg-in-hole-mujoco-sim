@@ -1,1 +1,1 @@
-from manipulator_mujoco.utils.demo_utils import DemoRecorder
+from manipulator_mujoco.utils.demo_utils import Demo, DemoRecorder, DemoScheduler
