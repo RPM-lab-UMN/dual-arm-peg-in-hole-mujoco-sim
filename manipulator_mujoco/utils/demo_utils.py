@@ -207,7 +207,7 @@ class DemoScheduler:
 
         self.wait_time += 1
         
-        if self.wait_time > wait_time and left_pose_error < error_thresh and right_pose_error < error_thresh:
+        if self.wait_time > wait_time and (left_pose_error < error_thresh and right_pose_error < error_thresh):
             self.wait_time = 0
             self.phase += 1
 

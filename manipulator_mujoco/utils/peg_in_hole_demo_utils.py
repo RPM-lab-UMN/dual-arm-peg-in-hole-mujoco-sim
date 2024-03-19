@@ -6,7 +6,7 @@ class PegInHoleDemo(Demo):
     def __init__(self, phase, env, render_mode, max_demos=1, max_steps=-1, seed=0):
         assert phase in ["align", "contact", "slide_insert", "retreat"]
         self.phase = phase
-        self.trans_rng = np.random.default_rng(seed)
+        self.rng = np.random.default_rng(seed)
 
         demo_recorder = DemoRecorder(env, record_rate=10)
         demo_scheduler = self.build_phase_scheduler(DemoScheduler(env, verbose=False), phase)
@@ -77,7 +77,73 @@ class PegInHoleDemo(Demo):
                 error_thresh = 2e-2,
                 wait_time = 300,
                 record = True
-            )            
+            )
+        
+        elif phase == "slide_insert":
+            base_align_pose_left = [-0.3, -0.6, 0.7, 0, -0.70710677, 0, 0.70710677]
+            base_align_pose_right = [0.3, -0.6, 0.7, 0, 0.70710677, 0, 0.70710677]
+
+            base_contact_pose_left = base_align_pose_left.copy()
+            base_contact_pose_right = base_align_pose_right.copy()
+
+            perturb_left = self.generate_trans_perturbation(min_val=0, max_val=0.01)
+            perturb_right = self.generate_trans_perturbation(min_val=0, max_val=0.01)
+            perturb_left[0] = 0
+            perturb_right[0] = 0
+
+            # Ensuring that perturbations are centered around y=-0.6 and z=0.7
+            perturb_y_mult = np.array([1,1])
+            perturb_z_mult = np.array([1,1])
+            y_perturb_flip = self.rng.integers(0,2)
+            z_perturb_flip = self.rng.integers(0,2)
+
+            perturb_y_mult[y_perturb_flip] *= -1
+            perturb_z_mult[z_perturb_flip] *= -1
+            perturb_mult_matrix = np.vstack((perturb_y_mult, perturb_z_mult))
+
+            perturb_left[1:] *= perturb_mult_matrix[:, 0].flatten()
+            perturb_right[1:] *= perturb_mult_matrix[:, 1].flatten()
+
+            base_contact_pose_left[:3] += perturb_left
+            base_contact_pose_right[:3] += perturb_right
+
+            init_contact_pose_left = base_contact_pose_left.copy()
+            init_contact_pose_right = base_contact_pose_right.copy()
+
+            init_contact_pose_left[0] = -0.15
+            init_contact_pose_right[0] = 0.15
+
+            insert_pose_left = base_align_pose_left.copy()
+            insert_pose_right = base_align_pose_right.copy()
+
+            insert_pose_left[0] = -0.15
+            insert_pose_right[0] = 0.15
+
+            # Moving to perturbed position
+            scheduler.add_keyframe(
+                left_pos = base_contact_pose_left,
+                right_pos = base_contact_pose_right,
+                error_thresh = 1e-2,
+                record = False
+            )
+
+            # Moving to contact position
+            scheduler.add_keyframe(
+                left_pos = init_contact_pose_left,
+                right_pos = init_contact_pose_right,
+                error_thresh = 2e-2,
+                wait_time = 250,
+                record = False
+            )
+
+            # Moving to inserted position
+            scheduler.add_keyframe(
+                left_pos = insert_pose_left,
+                right_pos = insert_pose_right,
+                error_thresh = 2e-2,
+                wait_time = 225,
+                record = True
+            )
         
         return scheduler
     
@@ -86,7 +152,7 @@ class PegInHoleDemo(Demo):
         super().reset()
 
     def generate_trans_perturbation(self, min_val, max_val):
-        delta = self.trans_rng.uniform(-max_val,max_val,(3,))
+        delta = self.rng.uniform(-max_val,max_val,(3,))
         delta[0] *= 0.5 # Scale z perturbation to not be as large
         return delta
 
