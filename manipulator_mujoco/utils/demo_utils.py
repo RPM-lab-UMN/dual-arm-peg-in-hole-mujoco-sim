@@ -63,18 +63,18 @@ class DemoRecorder:
     def record_demo_values(self):
         self.times.append(self.time)
 
-        self.forces_left.append(self.env.physics.bind(self.env.left_arm.force_sensor).sensordata.copy())
-        self.torques_left.append(self.env.physics.bind(self.env.left_arm.torque_sensor).sensordata.copy())
+        self.forces_left.append(self.env.unwrapped.physics.bind(self.env.unwrapped.left_arm.force_sensor).sensordata.copy())
+        self.torques_left.append(self.env.unwrapped.physics.bind(self.env.unwrapped.left_arm.torque_sensor).sensordata.copy())
 
-        self.forces_right.append(self.env.physics.bind(self.env.right_arm.force_sensor).sensordata.copy())
-        self.torques_right.append(self.env.physics.bind(self.env.right_arm.torque_sensor).sensordata.copy())
+        self.forces_right.append(self.env.unwrapped.physics.bind(self.env.unwrapped.right_arm.force_sensor).sensordata.copy())
+        self.torques_right.append(self.env.unwrapped.physics.bind(self.env.unwrapped.right_arm.torque_sensor).sensordata.copy())
 
-        self.prop_left.append(self.env.left_arm.get_eef_pose(self.env.physics))
-        self.prop_right.append(self.env.right_arm.get_eef_pose(self.env.physics))
+        self.prop_left.append(self.env.unwrapped.left_arm.get_eef_pose(self.env.unwrapped.physics))
+        self.prop_right.append(self.env.unwrapped.right_arm.get_eef_pose(self.env.unwrapped.physics))
 
-        cur_frame_overhead = self.env.render_frame(camera_id=0)[:,:,[2,1,0]]
-        cur_frame_wrist_right = self.env.render_frame(camera_id=1)[:,:,[2,1,0]]
-        cur_frame_wrist_left = self.env.render_frame(camera_id=2)[:,:,[2,1,0]]
+        cur_frame_overhead = self.env.unwrapped.render_frame(camera_id=0)[:,:,[2,1,0]]
+        cur_frame_wrist_right = self.env.unwrapped.render_frame(camera_id=1)[:,:,[2,1,0]]
+        cur_frame_wrist_left = self.env.unwrapped.render_frame(camera_id=2)[:,:,[2,1,0]]
 
         cur_f_plot = self.get_current_force_plot_left()
         cur_t_plot = self.get_current_torque_plot_left()
@@ -250,8 +250,8 @@ class DemoScheduler:
             # Demo is complete
             return self.keyframes[-1]['left_pos'], self.keyframes[-1]['right_pos']
 
-        left_eef_pose = self.env.left_arm.get_eef_pose(self.env.physics)
-        right_eef_pose = self.env.right_arm.get_eef_pose(self.env.physics)
+        left_eef_pose = self.env.unwrapped.left_arm.get_eef_pose(self.env.unwrapped.physics)
+        right_eef_pose = self.env.unwrapped.right_arm.get_eef_pose(self.env.unwrapped.physics)
 
         left_target_pose = self.keyframes[self.phase]['left_pos']
         right_target_pose = self.keyframes[self.phase]['right_pos']
@@ -324,7 +324,7 @@ class Demo:
             while True:
                 left_action, right_action = self.scheduler.step()
                 self.env.step(np.array([left_action, right_action]))
-                self.env.render_frame(camera_id=0)
+                self.env.unwrapped.render_frame(camera_id=0)
 
                 if self.scheduler.is_complete() or (self.max_steps > 0 and cur_step >= self.max_steps):
                     cur_step = 0

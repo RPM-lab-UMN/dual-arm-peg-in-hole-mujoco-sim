@@ -1,22 +1,23 @@
 import manipulator_mujoco
 import gymnasium as gym
+import torch
 
 from manipulator_mujoco.utils import Demo, DemoRecorder, DemoScheduler, PegInHoleDemo
 
 def main():
-    render_mode = None
+    render_mode = "human" if not torch.cuda.is_available() else None
     env = gym.make('manipulator_mujoco/DualUR5eEnv-v0', render_mode=render_mode)
 
-    demo = PegInHoleDemo("align", env, max_steps=1500, max_demos=10, render_mode=render_mode)
+    # demo = PegInHoleDemo("align", env, max_steps=1500, max_demos=10, render_mode=render_mode)
     # demo = PegInHoleDemo("contact", env, max_steps=1000, max_demos=10, render_mode=render_mode)
-    # demo = PegInHoleDemo("slide_insert", env, max_steps=2500, max_demos=10, render_mode=render_mode, seed=2024)
+    demo = PegInHoleDemo("slide_insert", env, max_steps=2500, max_demos=10, render_mode=render_mode, seed=2024)
     # demo = PegInHoleDemo("full", env, max_steps=2000, max_demos=10, render_mode=render_mode, seed=2024)
     demo.run()
 
     # recorder = DemoRecorder(env, record_rate=10)
     # scheduler = DemoScheduler(env)
 
-    # # Ready position
+    # Ready position
     # scheduler.add_keyframe(
     #     left_pos = [-0.3, -0.6, 0.7, 0, -0.70710677, 0, 0.70710677],
     #     right_pos = [0.3, -0.6, 0.7, 0, 0.70710677, 0, 0.70710677],

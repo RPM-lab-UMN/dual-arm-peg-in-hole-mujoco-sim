@@ -76,8 +76,8 @@ class DualUR5eEnv(gym.Env):
         # small box to be manipulated
         self._box_left = Primitive(type="box", size=[0.04, 0.04, 0.04], pos=[0,0,0], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
         self._box_right = Primitive(type="box", size=[0.04, 0.04, 0.04], pos=[0,0,0], rgba=[1, 0, 0, 1], friction=[1, 0.3, 0.0001])
-        self._peg = PegHole(ph_type="peg", shape="Cross")
-        self._hole = PegHole(ph_type="hole", shape="Cross")
+        self._peg = PegHole(ph_type="peg", shape="Diamond")
+        self._hole = PegHole(ph_type="hole", shape="Diamond")
 
         self._left_gripper.attach_object(self._peg.mjcf_model, pos=[0,0,0.155], quat=[ 0, 0, -0.7071068, -0.7071068 ])
         self._right_gripper.attach_object(self._hole.mjcf_model, pos=[0,0,0.155], quat=[0,0,-0.7071081,-0.7071055])
@@ -159,20 +159,20 @@ class DualUR5eEnv(gym.Env):
             if options is None:
                 self.physics.bind(self.left_arm.joints).qpos = [
                     -1.11,
-                    2.7,
-                    2.63,
-                    -2.19,
-                    -0.463,
-                    -1.57,
+                    3.26, # 2.7
+                    2.2, # 2.63
+                    -2.32, # -2.19
+                    -0.463, # -0.463
+                    -1.57, # -1.57
                 ]
 
                 self.physics.bind(self.right_arm.joints).qpos = [
-                    1.11,
-                    -0.115,
-                    -2.2,
-                    2.32,
-                    -0.463,
-                    1.57,
+                    1.11, # 1.11
+                    -0.512, # -0.115
+                    -1.63, # -2.2
+                    2.15, # 2.32
+                    -0.463, # -0.463
+                    1.57, # 1.57
                 ]
             else:
                 self.physics.bind(self.left_arm.joints).qpos = options['left_pose']
