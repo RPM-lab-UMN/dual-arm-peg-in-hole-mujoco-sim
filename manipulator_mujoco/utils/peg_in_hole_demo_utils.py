@@ -3,7 +3,7 @@ import numpy as np
 from manipulator_mujoco.utils import Demo, DemoRecorder, DemoScheduler
 
 class PegInHoleDemo(Demo):
-    def __init__(self, phase, env, render_mode, max_steps=-1, seed=0):
+    def __init__(self, phase, env, render_mode, max_demos=1, max_steps=-1, seed=0):
         assert phase in ["align", "contact", "slide_insert", "retreat"]
         self.phase = phase
         self.trans_rng = np.random.default_rng(seed)
@@ -11,7 +11,7 @@ class PegInHoleDemo(Demo):
         demo_recorder = DemoRecorder(env, record_rate=10)
         demo_scheduler = self.build_phase_scheduler(DemoScheduler(env, verbose=False), phase)
 
-        super(self.__class__, self).__init__(env, demo_scheduler, demo_recorder, max_steps=max_steps, render_mode=render_mode)
+        super(self.__class__, self).__init__(env, demo_scheduler, demo_recorder, max_demos=max_demos, max_steps=max_steps, render_mode=render_mode)
     
     def build_phase_scheduler(self, scheduler, phase):
         if phase == "align":

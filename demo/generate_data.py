@@ -4,11 +4,11 @@ import gymnasium as gym
 from manipulator_mujoco.utils import Demo, DemoRecorder, DemoScheduler, PegInHoleDemo
 
 def main():
-    render_mode = "human"
+    render_mode = None
     env = gym.make('manipulator_mujoco/DualUR5eEnv-v0', render_mode=render_mode)
 
-    demo = PegInHoleDemo("align", env, max_steps=500, render_mode=render_mode)
-    # demo = PegInHoleDemo("contact", env, max_steps=1000, render_mode=render_mode)
+    # demo = PegInHoleDemo("align", env, max_steps=500, max_demos=10, render_mode=render_mode)
+    demo = PegInHoleDemo("contact", env, max_steps=1000, max_demos=10, render_mode=render_mode)
     demo.run()
 
     # recorder = DemoRecorder(env, record_rate=10)

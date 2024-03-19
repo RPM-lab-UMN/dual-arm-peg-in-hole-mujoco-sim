@@ -82,7 +82,7 @@ class DemoRecorder:
     def save_recording(self):
         size = self.video_frames[0].shape
         print("Saving video...")
-        out = cv2.VideoWriter('yuh.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 15, (1920,960)) # (1920,480)
+        out = cv2.VideoWriter('contact_demos.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 15, (1920,960)) # (1920,480)
         for i in range(len(self.video_frames)):
             out.write(self.video_frames[i])
         out.release()
@@ -251,14 +251,13 @@ class Demo:
 
     def reset(self):
         self.env.reset()
-        self.recorder.reset()
+        # self.recorder.reset() # TEMP
         self.scheduler.reset()
     
     def run(self):
-        self.reset()
-        cur_step = 0
-
         if self.render_mode == "human":
+            self.reset()
+            cur_step = 0
             while True:
                 left_action, right_action = self.scheduler.step()
                 self.env.step(np.array([left_action, right_action]))
@@ -271,11 +270,14 @@ class Demo:
                 cur_step += 1
         else:
             for eps_num in range(self.max_demos):
+                self.reset()
+                cur_step = 0
                 while not (self.scheduler.is_complete() or (self.max_steps > 0 and cur_step >= self.max_steps)):
                     left_action, right_action = self.scheduler.step()
                     self.env.step(np.array([left_action, right_action]))
                     if self.scheduler.can_record():
                         self.recorder.step()
+                    cur_step += 1
                 print(f"Created demo {eps_num+1}")
 
             # LATER: Move this inside the for loop (for one demo per video)
