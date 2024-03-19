@@ -2,12 +2,16 @@ import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+import os
+import json
 
 # Records and saves relevant values when running/recording scripted demonstrations
 class DemoRecorder:
-    def __init__(self, env, record_rate=10):
-        self.env = env
+    def __init__(self, env, record_rate=10, data_dir="data"):
+        # cur_dir = os.path.dirname(os.path.realpath(__file__))
+        self.data_dir = data_dir
 
+        self.env = env
         self.record_rate = record_rate
         self.time = 0
         self.times = []
@@ -18,6 +22,9 @@ class DemoRecorder:
         self.forces_right = []
         self.torques_right = []
 
+        self.prop_left = []
+        self.prop_right = []
+
         self.rgb_frames = {
             'overhead': [],
             'wrist_left': [],
@@ -25,6 +32,12 @@ class DemoRecorder:
         }
 
         self.video_frames = []
+        os.makedirs(self.data_dir, exist_ok=True)
+        # os.makedirs(os.path.join(cur_dir, "rgb"), exist_ok=True)
+        os.makedirs(os.path.join(self.data_dir, "rgb", "overhead"), exist_ok=True)
+        os.makedirs(os.path.join(self.data_dir, "rgb", "wrist_left"), exist_ok=True)
+        os.makedirs(os.path.join(self.data_dir, "rgb", "wrist_right"), exist_ok=True)
+        os.makedirs(os.path.join(self.data_dir, "obs"), exist_ok=True)
 
     def reset(self):
         self.time = 0
@@ -35,6 +48,9 @@ class DemoRecorder:
 
         self.forces_right = []
         self.torques_right = []
+
+        self.prop_left = []
+        self.prop_right = []
 
         self.rgb_frames = {
             'overhead': [],
@@ -52,6 +68,9 @@ class DemoRecorder:
 
         self.forces_right.append(self.env.physics.bind(self.env.right_arm.force_sensor).sensordata.copy())
         self.torques_right.append(self.env.physics.bind(self.env.right_arm.torque_sensor).sensordata.copy())
+
+        self.prop_left.append(self.env.left_arm.get_eef_pose(self.env.physics))
+        self.prop_right.append(self.env.right_arm.get_eef_pose(self.env.physics))
 
         cur_frame_overhead = self.env.render_frame(camera_id=0)[:,:,[2,1,0]]
         cur_frame_wrist_right = self.env.render_frame(camera_id=1)[:,:,[2,1,0]]
@@ -79,10 +98,54 @@ class DemoRecorder:
     #   force-torque (left/right arms)
     #   proprioception
     #   mp4 video
-    def save_recording(self):
+    def save_recording(self, demo_name="default"):
+        print("Saving rgb images...")
+        # Save rgb overhead imgs
+        for i_image, image in enumerate(self.rgb_frames['overhead']):
+            cv2.imwrite(os.path.join(self.data_dir, "rgb", "overhead", f'{demo_name}_{i_image:06d}.png'), image)
+
+        # Save rgb left wrist imgs
+        for i_image, image in enumerate(self.rgb_frames['wrist_left']):
+            cv2.imwrite(os.path.join(self.data_dir, "rgb", "wrist_left", f'{demo_name}_{i_image:06d}.png'), image)
+
+        # Save rgb right wrist imgs
+        for i_image, image in enumerate(self.rgb_frames['wrist_right']):
+            cv2.imwrite(os.path.join(self.data_dir, "rgb", "wrist_right", f'{demo_name}_{i_image:06d}.png'), image)
+        print("Done!")
+
+        # Save obs dictionary: left/right ft and left/right prop
+        print("Saving force/torque and proprioception data...")
+        low_dim_obs = [
+            {
+                'force': {
+                    'left': l_f.tolist(),
+                    'right': r_f.tolist()
+                },
+                'torque': {
+                    'left': l_t.tolist(),
+                    'right': r_t.tolist()
+                },
+                'prop': {
+                    'left': l_p.tolist(),
+                    'right': r_p.tolist()
+                }
+            } for l_f, r_f, l_t, r_t, l_p, r_p in zip(
+                self.forces_left, 
+                self.forces_right, 
+                self.torques_left, 
+                self.torques_right,
+                self.prop_left,
+                self.prop_right
+            ) 
+        ]
+        with open(os.path.join(self.data_dir, "obs", f"{demo_name}.json"), 'w') as f:
+            json.dump(low_dim_obs, f, indent=5)
+        print("Done!")
+
+        # Save rgb video
         size = self.video_frames[0].shape
         print("Saving video...")
-        out = cv2.VideoWriter('contact_demos.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 15, (1920,960)) # (1920,480)
+        out = cv2.VideoWriter(os.path.join(self.data_dir, f'{demo_name}.mp4'),cv2.VideoWriter_fourcc(*'mp4v'), 15, (1920,960)) # (1920,480)
         for i in range(len(self.video_frames)):
             out.write(self.video_frames[i])
         out.release()
@@ -251,7 +314,7 @@ class Demo:
 
     def reset(self):
         self.env.reset()
-        # self.recorder.reset() # TEMP
+        self.recorder.reset() # TEMP
         self.scheduler.reset()
     
     def run(self):
@@ -278,8 +341,10 @@ class Demo:
                     if self.scheduler.can_record():
                         self.recorder.step()
                     cur_step += 1
+                print("="*20)
                 print(f"Created demo {eps_num+1}")
 
-            # LATER: Move this inside the for loop (for one demo per video)
-            print("Demo complete: Saving data...")
-            self.recorder.save_recording()
+            # Move this outside the for loop (for multiple demos per video)
+                print("Demo complete: Saving data...")
+                self.recorder.save_recording(demo_name=f"{eps_num}".zfill(6))
+                print("="*20)

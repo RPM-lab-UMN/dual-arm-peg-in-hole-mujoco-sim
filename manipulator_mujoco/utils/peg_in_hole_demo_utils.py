@@ -2,7 +2,7 @@ import numpy as np
 from numpy import deg2rad, rad2deg
 
 from manipulator_mujoco.utils import Demo, DemoRecorder, DemoScheduler
-from manipulator_mujoco.utils import euler2mat, mat2quat
+from manipulator_mujoco.utils.transform_utils import euler2mat, mat2quat
 
 # NOTE: Use euler2mat, mat2quat to define rotations (instead of pure quat)
 

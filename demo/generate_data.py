@@ -4,7 +4,7 @@ import gymnasium as gym
 from manipulator_mujoco.utils import Demo, DemoRecorder, DemoScheduler, PegInHoleDemo
 
 def main():
-    render_mode = "human"
+    render_mode = None
     env = gym.make('manipulator_mujoco/DualUR5eEnv-v0', render_mode=render_mode)
 
     demo = PegInHoleDemo("align", env, max_steps=1500, max_demos=10, render_mode=render_mode)
