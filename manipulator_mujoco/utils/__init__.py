@@ -1,1 +1,2 @@
 from manipulator_mujoco.utils.demo_utils import Demo, DemoRecorder, DemoScheduler
+from manipulator_mujoco.utils.peg_in_hole_demo_utils import PegInHoleDemo

@@ -238,12 +238,14 @@ class Demo:
             demo_scheduler: DemoScheduler,
             demo_recorder: DemoRecorder,
             max_steps=-1,
+            max_demos=1,
             render_mode=None
     ):
         self.env = env
         self.scheduler = demo_scheduler
         self.recorder = demo_recorder
         self.max_steps = max_steps
+        self.max_demos = max_demos
         self.current_step = 0
         self.render_mode = render_mode
 
@@ -254,6 +256,7 @@ class Demo:
     
     def run(self):
         self.reset()
+        cur_step = 0
 
         if self.render_mode == "human":
             while True:
@@ -261,13 +264,20 @@ class Demo:
                 self.env.step(np.array([left_action, right_action]))
                 self.env.render_frame(camera_id=0)
 
-                if self.scheduler.is_complete():
+                if self.scheduler.is_complete() or (self.max_steps > 0 and cur_step >= self.max_steps):
+                    cur_step = 0
                     self.reset()
+                
+                cur_step += 1
         else:
-            while not self.scheduler.is_complete():
-                left_action, right_action = self.scheduler.step()
-                self.env.step(np.array([left_action, right_action]))
-                if self.scheduler.can_record():
-                    self.recorder.step()
+            for eps_num in range(self.max_demos):
+                while not (self.scheduler.is_complete() or (self.max_steps > 0 and cur_step >= self.max_steps)):
+                    left_action, right_action = self.scheduler.step()
+                    self.env.step(np.array([left_action, right_action]))
+                    if self.scheduler.can_record():
+                        self.recorder.step()
+                print(f"Created demo {eps_num+1}")
+
+            # LATER: Move this inside the for loop (for one demo per video)
             print("Demo complete: Saving data...")
             self.recorder.save_recording()
