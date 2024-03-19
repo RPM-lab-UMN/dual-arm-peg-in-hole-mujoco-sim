@@ -1,6 +1,10 @@
 import numpy as np
+from numpy import deg2rad, rad2deg
 
 from manipulator_mujoco.utils import Demo, DemoRecorder, DemoScheduler
+from manipulator_mujoco.utils import euler2mat, mat2quat
+
+# NOTE: Use euler2mat, mat2quat to define rotations (instead of pure quat)
 
 class PegInHoleDemo(Demo):
     def __init__(self, phase, env, render_mode, max_demos=1, max_steps=-1, seed=0):
@@ -13,9 +17,10 @@ class PegInHoleDemo(Demo):
 
         super(self.__class__, self).__init__(env, demo_scheduler, demo_recorder, max_demos=max_demos, max_steps=max_steps, render_mode=render_mode)
     
+    # TODO: Add more variation: zr (peg/gripper), yr
     def build_phase_scheduler(self, scheduler, phase):
         if phase == "align":
-            base_align_pose_left = [-0.3, -0.6, 0.7, 0, -0.70710677, 0, 0.70710677]
+            base_align_pose_left = [-0.3, -0.6, 0.7, 0, -0.70710677, 0, 0.70710677] # -0.5, -0.5,  0.5,  0.5 <- 90 deg rotation
             base_align_pose_right = [0.3, -0.6, 0.7, 0, 0.70710677, 0, 0.70710677]
 
             diff_align_pose_left = base_align_pose_left.copy()
@@ -43,6 +48,7 @@ class PegInHoleDemo(Demo):
                 left_pos = base_align_pose_left,
                 right_pos = base_align_pose_right,
                 error_thresh = 1e-2,
+                wait_time = 500,
                 record = True
             )
 
@@ -141,7 +147,7 @@ class PegInHoleDemo(Demo):
                 left_pos = insert_pose_left,
                 right_pos = insert_pose_right,
                 error_thresh = 2e-2,
-                wait_time = 225,
+                wait_time = 300,
                 record = True
             )
 

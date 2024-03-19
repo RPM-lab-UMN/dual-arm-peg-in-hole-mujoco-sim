@@ -7,10 +7,10 @@ def main():
     render_mode = "human"
     env = gym.make('manipulator_mujoco/DualUR5eEnv-v0', render_mode=render_mode)
 
-    # demo = PegInHoleDemo("align", env, max_steps=500, max_demos=10, render_mode=render_mode)
+    demo = PegInHoleDemo("align", env, max_steps=1500, max_demos=10, render_mode=render_mode)
     # demo = PegInHoleDemo("contact", env, max_steps=1000, max_demos=10, render_mode=render_mode)
-    # demo = PegInHoleDemo("slide_insert", env, max_steps=2000, max_demos=10, render_mode=render_mode, seed=2024)
-    demo = PegInHoleDemo("full", env, max_steps=2000, max_demos=10, render_mode=render_mode, seed=2024)
+    # demo = PegInHoleDemo("slide_insert", env, max_steps=2500, max_demos=10, render_mode=render_mode, seed=2024)
+    # demo = PegInHoleDemo("full", env, max_steps=2000, max_demos=10, render_mode=render_mode, seed=2024)
     demo.run()
 
     # recorder = DemoRecorder(env, record_rate=10)
